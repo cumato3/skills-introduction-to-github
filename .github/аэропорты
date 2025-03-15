@@ -1,1 +1,69 @@
-
+import requests 
+from bs4 import BeautifulSoup 
+import sqlite3 
+import pandas as pd 
+ 
+ # создание базы данных SQLite 
+ def create_database(): 
+     conn = sqlite3.connect('flights.db') 
+     cursor = conn.cursor() 
+     cursor.execute(''' 
+        CREATE TABLE IF NOT EXISTS flights ( 
+            if INTEGER PRIMARY KEY, 
+            flight_number TEXT, 
+            status TEXT, 
+            airport TEXT, 
+            delay INTEGER 
+            )
+     ''') 
+     conn.commit() 
+     conn.close() 
+     
+# функция для парсинга данных о рейсах 
+def parse_flight_data(url): 
+    response = requests.get(url) 
+    soup = BeautifulSoup(response.text, 'html.parser') 
+    
+    flights = []
+    #сам парсинг 
+    for flight in soup.find.all('div', class_='flight-info'): 
+        flight_number = flight.find('span',class_='flight_number').text   
+        status = flight.find('span', class_= 'status').text 
+        airport = flight.find('span',class_='airport').text 
+        delay = int(flight.find('span',class_='delay').text.replace(' min', '')) 
+        
+        flights.append((flight_number, status, airport, delay))
+        
+    return flights 
+    
+#сохранение данных в базу  
+def save_to_database(flights): 
+    conn = sqlite3.connect('flights.db')
+    cursor = conn.cursor() 
+    cursor.executemany(''' 
+        INSERT INFO flights (flight_number, status, airport, delay) 
+        VALUES (?, ?, ?, ?) 
+    ''', flights) 
+    conn.commit() 
+    conn.close() 
+    
+#сохранение данных в CSV файл 
+def save_to_csv(airport): 
+    conn = sqlite3.connect('flights.db') 
+    df = pd.read_sql_query(f'SELECT * FROM flights WHERE airport="{airport}"',conn) 
+    df.to_csv(f'{airport}_flights.csv',index = False) 
+    conn.close() 
+    
+#самая главная функция 
+def main(): 
+    create_database() 
+    url = 'https://www.flightera.net/ru/live_tracking' 
+    flights = parse_flight_data(url) 
+    save_to_database(flights) 
+    
+    #сохранение данных по конкретному аэррпорту 
+    airport = 'Domodedovo' 
+    save_to_csv (airport) 
+    
+if _name_ = '_main_': 
+    main()
